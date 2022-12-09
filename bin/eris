@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+
+"""
+Eris CLI
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent.joinpath("src")))
+
+from eris_cli import __main__ as cli_main
+
+cli_main()
