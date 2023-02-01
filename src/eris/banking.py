@@ -28,45 +28,87 @@ def hash_iban(name, iban):
 class UnknownMemberError(ValueError):
     """Member could not be resolved"""
 
+def decode_date(lang, value):
+    """Decode date"""
+    if lang == "de":
+        return decode_date_de(value)
+    if lang == "en":
+        return decode_date_en(value)
 
-def decode_date(value):
+    raise NotImplementedError("lang not supported")
+
+
+def decode_date_de(value):
     """Parse a date: format dd.mm.yyyy"""
     parts = value.split(".")
     if len(parts) != 3:
         raise ValueError("not a date:", value)
+
     return date(int(parts[2]), int(parts[1]), int(parts[0]))
 
 
-def decode_amount(value):
+def decode_date_en(value):
+    """Parse a date: format mm/dd/yyyy (what a fucked up format)"""
+    parts = value.split("/")
+    if len(parts) != 3:
+        raise ValueError("not a date:", value)
+
+    return date(int(parts[2]), int(parts[0]), int(parts[1]))
+
+
+def decode_amount(lang, value):
     """Decode the amount"""
-    value = value.replace(".", "").replace(",", ".")
+    if lang == "en":
+        value = value.replace(",", "")
+
+    if lang == "de":
+        value = value.replace(".", "").replace(",", ".")
+
     return Decimal(value)
 
 
-def decode_transaction(row):
+def decode_transaction(lang, row):
     """Decode a bank transaction row"""
     return {
-        "date": decode_date(row[F_DATE]),
+        "date": decode_date(lang, row[F_DATE]),
         "account_name": row[F_ACCOUNT_NAME],
         "description": row[F_DESCRIPTION],
         "iban": row[F_IBAN],
         "iban_hash": hash_iban(row[F_ACCOUNT_NAME], row[F_IBAN]),
         "bic": row[F_BIC],
-        "amount": decode_amount(row[F_AMOUNT]),
+        "amount": decode_amount(lang, row[F_AMOUNT]),
     }
 
+
+def get_csv_lang(filename, encoding=None):
+    """Get the language of the export. (de/en)"""
+    if not encoding:
+        encoding="iso-8859-1" # default
+
+    content = ""
+    with open(filename, encoding=encoding) as file:
+        content = file.read()
+
+    lines = content.split("\n")
+    if "Transactions" in lines[0]:
+        return "en"
+
+    return "de"
+        
 
 def read_transactions(filename, encoding=None):
     """Read bank .csv"""
     if not encoding:
         encoding="iso-8859-1" # default
 
+    lang = get_csv_lang(filename, encoding)
+
     transactions = []
     with open(filename, encoding=encoding) as file:
         reader = csv.reader(file, delimiter=";")
         for row in reader:
             try:
-                decode_date(row[0])
+                decode_date(lang, row[0])
             except:
                 continue
             if len(row) < F_AMOUNT:
@@ -74,7 +116,7 @@ def read_transactions(filename, encoding=None):
             if not row[F_AMOUNT]:
                 continue # We can skip outbound TX
 
-            transactions.append(decode_transaction(row))
+            transactions.append(decode_transaction(lang, row))
 
     return transactions
 
