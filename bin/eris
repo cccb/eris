@@ -5,9 +5,10 @@ Eris CLI
 """
 
 import sys
-from pathlib import Path
+from os import path
 
-sys.path.append(str(Path(__file__).parent.parent.joinpath("src")))
+sys.path.append(
+    path.realpath(path.join(__file__, "..", "..", "src")))
 
 from eris_cli import __main__ as cli_main
 
